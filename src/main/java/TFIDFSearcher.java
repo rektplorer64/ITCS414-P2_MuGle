@@ -1,6 +1,12 @@
-//Name: 
-//Section: 
-//ID: 
+/*
+This Code is modified by Section 1 Students of Mahidol University, the Faculty of ICT, 2019
+as part of the second project of ITCS414 - Information Retrieval and Storage.
+
+The group consists of
+    1. Krittin      Chatrinan       ID 6088022
+    2. Anon         Kangpanich      ID 6088053
+    3. Tanawin      Wichit          ID 6088221
+ */
 
 import org.jetbrains.annotations.NotNull;
 
@@ -44,7 +50,8 @@ public class TFIDFSearcher extends Searcher {
         List<String> tokens = Searcher.tokenize(queryString);
 
         /*
-         * Section 1: FETCHING termId, termFreq and relevant docId from the Query
+         * Section 1:
+         * FETCHING termId, termFreq and relevant docId from the Query
          */
 
         // HashMap for Storing Query's (termId: Int) maps to (termFreqInsideQuery: Int)
@@ -77,7 +84,8 @@ public class TFIDFSearcher extends Searcher {
         }
 
         /*
-         * Section 2: CONSTRUCT A NEW DOCUMENT VECTOR for the Given Query
+         * Section 2:
+         * CONSTRUCT A NEW DOCUMENT VECTOR for the Given Query
          */
 
         // Create a new Document Vector for the Query
@@ -95,37 +103,29 @@ public class TFIDFSearcher extends Searcher {
         queryDv.setNorm(TfIdfMathUtil.calculateNorm(queryDv.getVector()));
 
         /*
-         * Section 3: Calculate COSINE Similarity between the Query and all POTENTIAL DOCUMENTS
+         * Section 3:
+         * Calculate COSINE Similarity between the Query and all POTENTIAL DOCUMENTS
+         * Manipulate irrelevant documents so that the program behave correctly
+         * when there is totally no matched result.
          */
 
         // ArrayList for the Final Result
         ArrayList<SearchResult> searchResults = new ArrayList<>();
 
-        // Convert the given document Ids to pairs of document Id and Document Objects
-        Map<Integer, Document> potentialDocs = fetchDocumentsByIds(docIds);
-        for (int docId : potentialDocs.keySet()) {
-            // Get an associated Document Vector which is pre-computed in the indexer
-            DocumentVector docVector = indexer.getDocumentVectors().get(docId);
-
-            // Calculate the Cosine Similarity Score using Query and Vector
-            double score = TfIdfMathUtil.calculateCosineSimilarity(queryDv, docVector);
-
-            // Add that to the Final Result ArrayList
-            searchResults.add(new SearchResult(potentialDocs.get(docId), score));
-            // System.out.println("Cosine Similarity = " + score);
-        }
-
-        /*
-         * Section 4: Manipulate irrelevant documents so that the program behave correctly when there is totally no matched result.
-         */
-
-        // Iterate thru all Document that is not in the Result
+        // Iterate thru all Document
         for (Document document : documents) {
-            if (docIds.contains(document.getId())) {
-                continue;
+            if (docIds.contains(document.getId())) {        // If the Id of the current Document is relevant
+                DocumentVector docVector = indexer.getDocumentVectors().get(document.getId());
+
+                // Calculate the Cosine Similarity Score using Query and Vector
+                double score = TfIdfMathUtil.calculateCosineSimilarity(queryDv, docVector);
+
+                // Add that to the Final Result ArrayList
+                searchResults.add(new SearchResult(document, score));
+            } else {
+                // Add the irrelevant ones to the result and give it NaN (Not-a-Number) score
+                searchResults.add(new SearchResult(document, Double.NaN));
             }
-            // Add the irrelevant ones to the result and give it NaN (Not-a-Number) score
-            searchResults.add(new SearchResult(document, Double.NaN));
         }
 
         return finalizeSearchResult(searchResults, k);

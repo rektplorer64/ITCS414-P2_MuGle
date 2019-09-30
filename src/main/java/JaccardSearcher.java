@@ -1,6 +1,12 @@
-//Name: 
-//Section: 
-//ID: 
+/*
+This Code is modified by Section 1 Students of Mahidol University, the Faculty of ICT, 2019
+as part of the second project of ITCS414 - Information Retrieval and Storage.
+
+The group consists of
+    1. Krittin      Chatrinan       ID 6088022
+    2. Anon         Kangpanich      ID 6088053
+    3. Tanawin      Wichit          ID 6088221
+ */
 
 import java.util.*;
 
@@ -22,6 +28,8 @@ public class JaccardSearcher extends Searcher {
     public JaccardSearcher(String docFilename) {
         super(docFilename);
         // TODO: YOUR CODE HERE
+
+        // Instantiate the indexer
         indexer = new Indexer(documents, stopWords);
     }
 
@@ -99,9 +107,11 @@ class JaccardMathHelper {
             return 0;
         }
 
+        // Intersection between QUERY termId set and DOCUMENT termId set
         Set<String> intersect = new HashSet<>(documentTermIdSet);
         intersect.retainAll(queryTermIdSet);
 
+        // Union of DOCUMENT termId set and QUERY term Id set
         Set<String> union = new HashSet<>(documentTermIdSet);
         union.addAll(queryTermIdSet);
 

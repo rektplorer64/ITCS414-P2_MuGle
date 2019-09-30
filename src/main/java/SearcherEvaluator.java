@@ -1,6 +1,12 @@
-//Name: 
-//Section: 
-//ID: 
+/*
+This Code is modified by Section 1 Students of Mahidol University, the Faculty of ICT, 2019
+as part of the second project of ITCS414 - Information Retrieval and Storage.
+
+The group consists of
+    1. Krittin      Chatrinan       ID 6088022
+    2. Anon         Kangpanich      ID 6088053
+    3. Tanawin      Wichit          ID 6088221
+ */
 
 import java.io.File;
 import java.io.IOException;
@@ -12,9 +18,20 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 
+/**
+ * This class facilitates evaluation process for the Search Engine
+ */
 public class SearcherEvaluator {
-    private List<Document> queries = null;                //List of test queries. Each query can be treated as a Document object.
-    private Map<Integer, Set<Integer>> answers = null;    //Mapping between query ID and a set of relevant document IDs
+
+    /**
+     * List of test queries. Each query can be treated as a Document object.
+     */
+    private List<Document> queries = null;
+
+    /**
+     * Mapping between query ID and a set of relevant document IDs
+     */
+    private Map<Integer, Set<Integer>> answers = null;
 
     public List<Document> getQueries() {
         return queries;
@@ -29,7 +46,7 @@ public class SearcherEvaluator {
      * Load corresponding documents into "answers"
      * Other initialization, depending on your design.
      *
-     * @param corpus
+     * @param corpus the String directory of corpus
      */
     public SearcherEvaluator(String corpus) {
         String queryFilename = corpus + "/queries.txt";
@@ -63,10 +80,10 @@ public class SearcherEvaluator {
      * Returns an array of 3 numbers: precision, recall, F1, computed from the top *k* search results
      * returned from *searcher* for *query*
      *
-     * @param query
-     * @param searcher
-     * @param k
-     * @return
+     * @param query    Document Object for a query
+     * @param searcher Searcher Instance to be search
+     * @param k        top k SearchResult with highest relevant
+     * @return an array consists of precision, recall and F1
      */
     public double[] getQueryPRF(Document query, Searcher searcher, int k) {
         // TODO: YOUR CODE HERE
@@ -91,47 +108,80 @@ public class SearcherEvaluator {
      * Test all the queries in *queries*, from the top *k* search results returned by *searcher*
      * and take the average of the precision, recall, and F1.
      *
-     * @param searcher
-     * @param k
-     * @return
+     * @param searcher Searcher Instance to be search
+     * @param k        top k SearchResult with highest relevant
+     * @return an array consists of precision, recall and F1
      */
     public double[] getAveragePRF(Searcher searcher, int k) {
 
+        // Instantiates the summation variables with precision, recall, and F
         double sumPrecision = 0, sumRecall = 0, sumF = 0;
-        for (Document query: queries){
-            double[] precisionRecallF = getQueryPRF(query, searcher, k);
-            sumPrecision += precisionRecallF[0];
-            sumRecall += precisionRecallF[1];
-            sumF += precisionRecallF[2];
+
+        for (Document query : queries) {        // For every Document in query field map
+            double[] precisionRecallF = getQueryPRF(query, searcher, k);    // Calculate precision, recall, and F
+            sumPrecision += precisionRecallF[0];       // Accumulates Precision
+            sumRecall += precisionRecallF[1];          // Accumulates Recall
+            sumF += precisionRecallF[2];               // Accumulates F
         }
 
         // System.out.println("QuerySize = " + queries.size());
 
+        // Find the averages of each variables
         double averagePrecision = sumPrecision / queries.size();
         double averageRecall = sumRecall / queries.size();
         double averageF = sumF / queries.size();
 
+        // Pack them into an double array
         return new double[]{averagePrecision, averageRecall, averageF};
     }
 }
 
-class EvaluatorMathUtil{
+/**
+ * This class contains helper methods that facilitates Search Engine evaluation process
+ */
+class EvaluatorMathUtil {
+
+    /**
+     * Calculates the Precision value from given result DocId sets
+     * Formula: Precision = {Set of Actual Retrieved Relevant elements} / {Set of Search Result elements}
+     *
+     * @param searchResultDocIds   the set of Ids of Document in the Search Result
+     * @param realRelevantDocIdSet the set of Ids of real relevant Document
+     * @return precision value
+     */
     static double calculatePrecision(Set<Integer> searchResultDocIds, Set<Integer> realRelevantDocIdSet) {
-        Set<Integer> actualRelevant = new HashSet<>(searchResultDocIds);
-        actualRelevant.retainAll(realRelevantDocIdSet);
+        // Intersection between Search Result set and real Relevant set
+        Set<Integer> actualRetrievedRelevant = new HashSet<>(searchResultDocIds);
+        actualRetrievedRelevant.retainAll(realRelevantDocIdSet);
 
-        return (double) actualRelevant.size() / (double) searchResultDocIds.size();
+        return (double) actualRetrievedRelevant.size() / (double) searchResultDocIds.size();
     }
 
+    /**
+     * Calculates the Recall value from given result DocId sets
+     * Formula: Recall = {Set of Actual Retrieved Relevant elements} / {Set of Real Relevant elements}
+     *
+     * @param searchResultDocIds   the set of Ids of Document in the Search Result
+     * @param realRelevantDocIdSet the set of Ids of real relevant Document
+     * @return precision value
+     */
     static double calculateRecall(Set<Integer> searchResultDocIds, Set<Integer> realRelevantDocIdSet) {
-        Set<Integer> actualRelevant = new HashSet<>(searchResultDocIds);
-        actualRelevant.retainAll(realRelevantDocIdSet);
+        // Intersection between Search Result set and real Relevant set
+        Set<Integer> actualRetrievedRelevant = new HashSet<>(searchResultDocIds);
+        actualRetrievedRelevant.retainAll(realRelevantDocIdSet);
 
-        return (double) actualRelevant.size() / (double) realRelevantDocIdSet.size();
+        return (double) actualRetrievedRelevant.size() / (double) realRelevantDocIdSet.size();
     }
 
+    /**
+     * Find the value of F1; aka bridging between precision and recall values.
+     *
+     * @param precision precision value
+     * @param recall    recall value
+     * @return F1 value
+     */
     static double calculateBigF1(double precision, double recall) {
-        if (precision + recall == 0){
+        if (precision + recall == 0) {
             return 0;
         }
         return (2.0 * precision * recall) / (precision + recall);
