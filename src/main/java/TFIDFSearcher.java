@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 /**
- * This class facilitates an algorithm to retrieve documents based on its TF-IDF weight with cosine similarity score
+ * This class facilitates an algorithm to retrieve documents based on its TF-IDF weight with cosine similarity score.
  */
 public class TFIDFSearcher extends Searcher {
 
@@ -87,7 +87,7 @@ public class TFIDFSearcher extends Searcher {
         }
 
         // Calculate TF-IDF Weight; the outcome is present in queryDv (queryDv got modified)
-        Indexer.calculateTfIdfWeightAndNorm(queryDv,
+        Indexer.calculateTfIdfWeight(queryDv,
                 indexer.getDocumentVectors().size(),
                 indexer.getTermDocFrequency());
 
@@ -264,6 +264,7 @@ public class TFIDFSearcher extends Searcher {
 
 /**
  * A class that responsible for the document indexing
+ * Getters are allowed only as we do not allow any reassignments from external classes.
  */
 class Indexer {
     /**
@@ -373,39 +374,72 @@ class Indexer {
 
         calculateWeightsAndNormForAllVectors();
     }
-    
-    private void calculateWeightsAndNormForAllVectors() {
-        for (TFIDFSearcher.DocumentVector vector : documentVectors.values()) {
-            calculateTfIdfWeightAndNorm(vector, documentVectors.size(), termDocFrequency);
 
-            double norm = TfIdfMathUtil.calculateNorm(vector.getVector());
+    /**
+     * Calculate IF-IDF Weight Score and Norm for every vector
+     */
+    private void calculateWeightsAndNormForAllVectors() {
+        // For every Vector in the HashMap
+        for (TFIDFSearcher.DocumentVector vector : documentVectors.values()) {
+            // We calculate TF-IDF Weight and Norm of each vector.
+            calculateTfIdfWeight(vector, documentVectors.size(), termDocFrequency);
+
+            // Calculate the norm and set it to the Document Vector
+            vector.setNorm(TfIdfMathUtil.calculateNorm(vector.getVector()));
+
             // System.out.println("Norm of Doc #" + vector.getDocId() + "\t= " + norm);
-            vector.setNorm(norm);
             // System.out.println();
         }
     }
 
-    static void calculateTfIdfWeightAndNorm(TFIDFSearcher.DocumentVector dv, int totalDocument, Map<Integer, Integer> termDocFrequency) {
-        for (Map.Entry<Integer, Double> termIdFreqMap : dv.getVector().entrySet()) {
-            final int termFrequency = termIdFreqMap.getValue().intValue();
+    /**
+     * Calculate TF-IDF Weight of the given Document Vector.
+     *
+     * @param dv               a Document Vector which had its Score Map populated by term frequencies
+     * @param totalDocument    total number of documents in the dataset
+     * @param termDocFrequency mapping between term Id and document Frequency
+     */
+    static void calculateTfIdfWeight(TFIDFSearcher.DocumentVector dv, int totalDocument, Map<Integer, Integer> termDocFrequency) {
+        // Iterates every Vector in the Map
+        for (Map.Entry<Integer, Double> termIdFreqEntry : dv.getVector().entrySet()) {
+            // We get term frequency from the entry (Convert it to an Int)
+            final int termFrequency = termIdFreqEntry.getValue().intValue();
 
+            // Calculate Term Frequency (TF) Weight
             double tfWeight = TfIdfMathUtil.calculateTermFrequency(termFrequency);
+
+            // Calculate Inverted Document Frequency (IDF) Weight
             double idfWeight = TfIdfMathUtil
                     .calculateInvertedDocFrequency(totalDocument
-                            , termDocFrequency.get(termIdFreqMap.getKey()));
+                            , termDocFrequency.get(termIdFreqEntry.getKey()));
+
+            // Actual final score
             double tfIdfWeight = tfWeight * idfWeight;
-            // System.out.println("TF-IDF Weight = " + tfIdfWeight);
-            termIdFreqMap.setValue(tfIdfWeight);
+
+            // Set the actual score to the Map
+            termIdFreqEntry.setValue(tfIdfWeight);
         }
     }
 
+    /**
+     * Populate field DocumentVector Map
+     *
+     * @param tempDocVector Mapping between (docId: Int) and (Mapping between (termId: Int) and (weightScore: Double))
+     */
     private void populateDocumentVectors(HashMap<Integer, HashMap<Integer, Double>> tempDocVector) {
         for (Map.Entry<Integer, HashMap<Integer, Double>> entry : tempDocVector.entrySet()) {
+            // Convert each entry to a DocumentVector and put it to the field map
             documentVectors.put(entry.getKey(), new TFIDFSearcher.DocumentVector(entry.getKey(), entry.getValue()));
         }
+        // Clear the reference and hope that GC will clean it up
         tempDocVector = null;
     }
 
+    /**
+     * Populate field termDict by simply assign it
+     *
+     * @param invertedTermDict Mapping between (term: String) and (termId: Int)
+     */
     private void populateTermDict(HashMap<String, Integer> invertedTermDict) {
         // for (String term : invertedTermDict.keySet()) {
         //     termDict.put(invertedTermDict.get(term), term);
@@ -435,6 +469,9 @@ class Indexer {
     }
 }
 
+/**
+ * This class contains helper methods that facilitates TF-IDF scoring
+ */
 class TfIdfMathUtil {
 
     /**
