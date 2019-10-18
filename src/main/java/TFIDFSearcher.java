@@ -8,6 +8,7 @@ The group consists of
     3. Tanawin      Wichit          ID 6088221
  */
 
+import opennlp.tools.dictionary.Index;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -28,11 +29,21 @@ public class TFIDFSearcher extends Searcher {
      * @param docFilename the name of a file that contains documents in it
      */
     public TFIDFSearcher(String docFilename) {
-        super(docFilename);
         // TODO: Your Code Here
+        this(docFilename, null);
+    }
 
+    /**
+     * Constructor for Unit testing
+     * @param docFilename the name of a file that contains documents in it
+     * @param w debugging interface
+     */
+    public TFIDFSearcher(String docFilename, WeightCalculationListener w){
+        super(docFilename);
         // Instantiate the indexer
-        indexer = new Indexer(documents, stopWords);
+        Indexer.Builder indexerBuilder = new Indexer.Builder(documents, stopWords);
+        indexerBuilder.setDebuggerInterface(w);
+        indexer = indexerBuilder.build();
     }
 
     /**
@@ -57,8 +68,8 @@ public class TFIDFSearcher extends Searcher {
         // HashMap for Storing Query's (termId: Int) maps to (termFreqInsideQuery: Int)
         HashMap<Integer, Integer> queryTermFreq = new HashMap<>();
 
-        // HashMap for Storing Relevant Document Ids
-        HashSet<Integer> docIds = new HashSet<>();
+        // HashMap for Storing potentially relevant Document Ids
+        HashSet<Integer> potentialDocIds = new HashSet<>();
 
         // For every token inside Query
         for (String token : tokens) {
@@ -80,7 +91,7 @@ public class TFIDFSearcher extends Searcher {
             queryTermFreq.put(termId, queryTermFreq.get(termId) + 1);
 
             // Add all docIds from the acc
-            docIds.addAll(indexer.getPostingLists().get(termId));
+            potentialDocIds.addAll(indexer.getPostingLists().get(termId));
         }
 
         /*
@@ -104,7 +115,7 @@ public class TFIDFSearcher extends Searcher {
 
         /*
          * Section 3:
-         * Calculate COSINE Similarity between the Query and all POTENTIAL DOCUMENTS
+         * Calculate COSINE SIMILARITY between the Query and all POTENTIAL DOCUMENTS
          * Manipulate irrelevant documents so that the program behave correctly
          * when there is totally no matched result.
          */
@@ -114,7 +125,7 @@ public class TFIDFSearcher extends Searcher {
 
         // Iterate thru all Document
         for (Document document : documents) {
-            if (docIds.contains(document.getId())) {        // If the Id of the current Document is relevant
+            if (potentialDocIds.contains(document.getId())) {        // If the Id of the current Document is relevant
                 DocumentVector docVector = indexer.getDocumentVectors().get(document.getId());
 
                 // Calculate the Cosine Similarity Score using Query and Vector
@@ -132,7 +143,7 @@ public class TFIDFSearcher extends Searcher {
     }
 
     /**
-     * Finalize the Search Result ArrayList by sorting correctly and trim to k
+     * Finalize the Search Result ArrayList by sorting correctly and trim to k.
      *
      * @param searchResults ArrayList of Search Result
      * @param k             number of results to be shown
@@ -171,7 +182,7 @@ public class TFIDFSearcher extends Searcher {
     }
 
     /**
-     * Fetch Document objects which relevant to the given set of docId from the super class's List of Documents
+     * Fetch Document objects which relevant to the given set of docId from the super class's List of Documents.
      *
      * @param docIds a Set of document Id
      * @return a Mapping between document Id and an actual Document object
@@ -190,7 +201,7 @@ public class TFIDFSearcher extends Searcher {
     }
 
     /**
-     * This Data class represents a Document Vector
+     * This Data class represents a Document Vector.
      */
     public static class DocumentVector implements Comparable<Integer> {
         /**
@@ -260,6 +271,11 @@ public class TFIDFSearcher extends Searcher {
         }
     }
 
+    public static interface WeightCalculationListener {
+        boolean onLoopIterationCheckCondition(int docId);
+        void onCalculation(TFIDFSearcher.DocumentVector dv, int totalDocument, Map<Integer, Integer> termDocFrequency);
+        void onCalculated(TFIDFSearcher.DocumentVector dv);
+    }
 }
 
 /**
@@ -292,14 +308,21 @@ class Indexer {
      */
     private int totalTermFrequency = 0;
 
+    private TFIDFSearcher.WeightCalculationListener debuggerInterface;
+
     /**
-     * Constructor for the Indexer class & responsible for the initialization of an Indexing process
+     * Constructor for the Indexer class; must be instantiate via {@link Builder}
+     */
+    private Indexer() {}
+
+    /**
+     * Responsible for the initialization of an Indexing process
      * Be careful for this initialization, as it can be expensive for a large dataset.
      *
      * @param documents List of Document Objects
      * @param stopWords Set of the Stop word
      */
-    Indexer(List<Document> documents, Set<String> stopWords) {
+    private void start(List<Document> documents, Set<String> stopWords) {
 
         // Temporary Mapping between (docId: Int) and (Mapping between (termId: Int) and (scoreWeight: Double))
         HashMap<Integer, HashMap<Integer, Double>> tempDocVector = new HashMap<>();
@@ -381,11 +404,22 @@ class Indexer {
     private void calculateWeightsAndNormForAllVectors() {
         // For every Vector in the HashMap
         for (TFIDFSearcher.DocumentVector vector : documentVectors.values()) {
+
+            boolean isDebuggingTarget = (debuggerInterface != null) && debuggerInterface.onLoopIterationCheckCondition(vector.getDocId());
+
+            if (isDebuggingTarget) {
+                debuggerInterface.onCalculation(vector, documentVectors.size(), termDocFrequency);
+            }
+
             // We calculate TF-IDF Weight and Norm of each vector.
             calculateTfIdfWeight(vector, documentVectors.size(), termDocFrequency);
 
             // Calculate the norm and set it to the Document Vector
             vector.setNorm(TfIdfMathUtil.calculateNorm(vector.getVector()));
+
+            if (isDebuggingTarget){
+                debuggerInterface.onCalculated(vector);
+            }
 
             // System.out.println("Norm of Doc #" + vector.getDocId() + "\t= " + norm);
             // System.out.println();
@@ -422,7 +456,7 @@ class Indexer {
     }
 
     /**
-     * Populate field DocumentVector Map
+     * Populate field DocumentVector Map.
      *
      * @param tempDocVector Mapping between (docId: Int) and (Mapping between (termId: Int) and (weightScore: Double))
      */
@@ -431,12 +465,13 @@ class Indexer {
             // Convert each entry to a DocumentVector and put it to the field map
             documentVectors.put(entry.getKey(), new TFIDFSearcher.DocumentVector(entry.getKey(), entry.getValue()));
         }
+
         // Clear the reference and hope that GC will clean it up
         tempDocVector = null;
     }
 
     /**
-     * Populate field termDict by simply assign it
+     * Populate field termDict by simply assign it.
      *
      * @param invertedTermDict Mapping between (term: String) and (termId: Int)
      */
@@ -466,6 +501,33 @@ class Indexer {
 
     public int getTotalTermFrequency() {
         return totalTermFrequency;
+    }
+
+    public void setDebuggerInterface(TFIDFSearcher.WeightCalculationListener debuggerInterface) {
+        this.debuggerInterface = debuggerInterface;
+    }
+
+    public static class Builder {
+        private final List<Document> documents;
+        private final Set<String> stopWords;
+        private TFIDFSearcher.WeightCalculationListener listener;
+
+        public Builder(List<Document> documents, Set<String> stopWords){
+            this.documents = documents;
+            this.stopWords = stopWords;
+        }
+
+        public Builder setDebuggerInterface(TFIDFSearcher.WeightCalculationListener listener) {
+            this.listener = listener;
+            return this;
+        }
+
+        public Indexer build() {
+            Indexer indexer = new Indexer();
+            indexer.setDebuggerInterface(listener);
+            indexer.start(documents, stopWords);
+            return indexer;
+        }
     }
 }
 

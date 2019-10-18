@@ -116,7 +116,7 @@ public class StudentTester {
 	
 	public static void testYourSearcher(String corpus)
 	{
-		//YOUR CODE HERE (BONUS)
+		// TODO: YOUR CODE HERE (BONUS)
 	}
 	
 	public static void main(String[] args)

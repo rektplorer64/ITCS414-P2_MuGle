@@ -30,7 +30,7 @@ public class JaccardSearcher extends Searcher {
         // TODO: YOUR CODE HERE
 
         // Instantiate the indexer
-        indexer = new Indexer(documents, stopWords);
+        indexer = new Indexer.Builder(documents, stopWords).build();
     }
 
     /**
