@@ -34,10 +34,11 @@ public class TFIDFSearcher extends Searcher {
 
     /**
      * Constructor for Unit testing
+     *
      * @param docFilename the name of a file that contains documents in it
-     * @param w debugging interface
+     * @param w           debugging interface
      */
-    public TFIDFSearcher(String docFilename, WeightCalculationListener w){
+    public TFIDFSearcher(String docFilename, WeightCalculationListener w) {
         super(docFilename);
         // Instantiate the indexer
         VectorSpaceModelIndexer.Builder indexerBuilder = new VectorSpaceModelIndexer.Builder(documents, stopWords);
@@ -270,13 +271,22 @@ public class TFIDFSearcher extends Searcher {
         }
     }
 
+    /**
+     * An interface for debugging TF-IDF weight calculation
+     */
     public static interface WeightCalculationListener {
         boolean onLoopIterationCheckCondition(int docId);
+
         void onCalculation(TFIDFSearcher.DocumentVector dv, int totalDocument, Map<Integer, Integer> termDocFrequency);
+
         void onCalculated(TFIDFSearcher.DocumentVector dv);
     }
 }
 
+/**
+ * A class that responsible for the document indexing.
+ * Getters are allowed only as we do not allow any reassignments from external classes.
+ */
 abstract class Indexer {
     /**
      * Mapping between (term: String) and (termId: Int)
@@ -294,9 +304,6 @@ abstract class Indexer {
      * Integer that counts all term frequency
      */
     protected int totalTermFrequency = 0;
-    protected TFIDFSearcher.WeightCalculationListener debuggerInterface;
-
-
 
     /**
      * Responsible for the initialization of an Indexing process
@@ -305,7 +312,7 @@ abstract class Indexer {
      * @param documents List of Document Objects
      * @param stopWords Set of the Stop word
      */
-    protected void start(List<Document> documents, Set<String> stopWords){
+    protected void start(List<Document> documents, Set<String> stopWords) {
         // Temporary Mapping between (docId: Int) and (Mapping between (termId: Int) and (scoreWeight: Double))
         HashMap<Integer, HashMap<Integer, Double>> tempDocVector = new HashMap<>();
 
@@ -390,8 +397,20 @@ abstract class Indexer {
         invertedTermDict = null;
     }
 
+    /**
+     * The method will invoked when the indexer start indexing a document
+     *
+     * @param docId     document Id
+     * @param docLength the length of the actual document (Duplications and stop-words included)
+     */
     abstract void onIndexingDocument(int docId, int docLength);
 
+    /**
+     * The method will be invoked after the indexing process is entirely completed.
+     *
+     * @param invertedTermDict mapping between (term string and its termId number)
+     * @param tempDocVector    mapping between (documentId and mapping between (termId and value such as TF-IDF or raw termFreq))
+     */
     abstract void onPostIndexing(HashMap<String, Integer> invertedTermDict, HashMap<Integer, HashMap<Integer, Double>> tempDocVector);
 
     HashMap<String, Integer> getTermDict() {
@@ -410,16 +429,18 @@ abstract class Indexer {
         return totalTermFrequency;
     }
 
-    public void setDebuggerInterface(TFIDFSearcher.WeightCalculationListener debuggerInterface) {
-        this.debuggerInterface = debuggerInterface;
-    }
 }
 
 /**
- * A class that responsible for the document indexing
+ * A class that responsible for the document indexing using TF-IDF Weight with Cosine Similarity.
  * Getters are allowed only as we do not allow any reassignments from external classes.
  */
 class VectorSpaceModelIndexer extends Indexer {
+
+    /**
+     * Debugging Interface for Indexer
+     */
+    protected TFIDFSearcher.WeightCalculationListener debuggerInterface;
 
     /**
      * Mapping between (docId: Int) and (documentVector: DocumentVector)
@@ -429,15 +450,27 @@ class VectorSpaceModelIndexer extends Indexer {
     /**
      * Constructor for the Indexer class; must be instantiate via {@link Builder}
      */
-    private VectorSpaceModelIndexer() {}
+    private VectorSpaceModelIndexer() {
+    }
 
+    /**
+     * It is not necessary to do anything on indexing a new document.
+     * @param docId     document Id
+     * @param docLength the length of the actual document (Duplications and stop-words included)
+     */
     @Override
-    void onIndexingDocument(int docId, int docLength) { }
+    void onIndexingDocument(int docId, int docLength) {
+    }
 
+    /**
+     * Populate DocumentVectors and Calculate Norm and TF-IDF of all elements in each vectors.
+     *
+     * @param invertedTermDict mapping between (term string and its termId number)
+     * @param tempDocVector    mapping between (documentId and mapping between (termId and value such as TF-IDF or raw termFreq))
+     */
     @Override
     void onPostIndexing(HashMap<String, Integer> invertedTermDict, HashMap<Integer, HashMap<Integer, Double>> tempDocVector) {
         populateDocumentVectors(tempDocVector);
-
         calculateWeightsAndNormForAllVectors();
     }
 
@@ -460,7 +493,7 @@ class VectorSpaceModelIndexer extends Indexer {
             // Calculate the norm and set it to the Document Vector
             vector.setNorm(TfIdfMathUtil.calculateNorm(vector.getVector()));
 
-            if (isDebuggingTarget){
+            if (isDebuggingTarget) {
                 debuggerInterface.onCalculated(vector);
             }
 
@@ -498,6 +531,9 @@ class VectorSpaceModelIndexer extends Indexer {
         }
     }
 
+    public void setDebuggerInterface(TFIDFSearcher.WeightCalculationListener debuggerInterface) {
+        this.debuggerInterface = debuggerInterface;
+    }
 
     HashMap<Integer, TFIDFSearcher.DocumentVector> getDocumentVectors() {
         return documentVectors;
@@ -518,14 +554,15 @@ class VectorSpaceModelIndexer extends Indexer {
         tempDocVector = null;
     }
 
-
-
+    /**
+     * Builder for the VSM Indexer
+     */
     public static class Builder {
         private final List<Document> documents;
         private final Set<String> stopWords;
         private TFIDFSearcher.WeightCalculationListener listener;
 
-        public Builder(List<Document> documents, Set<String> stopWords){
+        public Builder(List<Document> documents, Set<String> stopWords) {
             this.documents = documents;
             this.stopWords = stopWords;
         }
