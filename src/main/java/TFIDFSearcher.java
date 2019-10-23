@@ -8,7 +8,6 @@ The group consists of
     3. Tanawin      Wichit          ID 6088221
  */
 
-import opennlp.tools.dictionary.Index;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -21,7 +20,7 @@ public class TFIDFSearcher extends Searcher {
     /**
      * An instance of indexer which contains all indexed docs and terms.
      */
-    private Indexer indexer;
+    private VectorSpaceModelIndexer indexer;
 
     /**
      * Main constructor for the Searcher
@@ -41,7 +40,7 @@ public class TFIDFSearcher extends Searcher {
     public TFIDFSearcher(String docFilename, WeightCalculationListener w){
         super(docFilename);
         // Instantiate the indexer
-        Indexer.Builder indexerBuilder = new Indexer.Builder(documents, stopWords);
+        VectorSpaceModelIndexer.Builder indexerBuilder = new VectorSpaceModelIndexer.Builder(documents, stopWords);
         indexerBuilder.setDebuggerInterface(w);
         indexer = indexerBuilder.build();
     }
@@ -106,7 +105,7 @@ public class TFIDFSearcher extends Searcher {
         }
 
         // Calculate TF-IDF Weight; the outcome is present in queryDv (queryDv got modified)
-        Indexer.calculateTfIdfWeight(queryDv,
+        VectorSpaceModelIndexer.calculateTfIdfWeight(queryDv,
                 indexer.getDocumentVectors().size(),
                 indexer.getTermDocFrequency());
 
@@ -278,42 +277,26 @@ public class TFIDFSearcher extends Searcher {
     }
 }
 
-/**
- * A class that responsible for the document indexing
- * Getters are allowed only as we do not allow any reassignments from external classes.
- */
-class Indexer {
+abstract class Indexer {
     /**
      * Mapping between (term: String) and (termId: Int)
      */
-    private HashMap<String, Integer> termDict = new HashMap<>();
-
-    /**
-     * Mapping between (docId: Int) and (documentVector: DocumentVector)
-     */
-    private HashMap<Integer, TFIDFSearcher.DocumentVector> documentVectors = new HashMap<>();
-
+    protected HashMap<String, Integer> termDict = new HashMap<>();
     /**
      * Mapping between (termId: Int) and (termFreq: Int)
      */
-    private HashMap<Integer, Integer> termDocFrequency = new HashMap<>();
-
+    protected HashMap<Integer, Integer> termDocFrequency = new HashMap<>();
     /**
      * Mapping between (termId: Int) and (docIdSet: HashSet{@literal <Int>})
      */
-    private HashMap<Integer, HashSet<Integer>> postingLists = new HashMap<>();
-
+    protected HashMap<Integer, HashSet<Integer>> postingLists = new HashMap<>();
     /**
      * Integer that counts all term frequency
      */
-    private int totalTermFrequency = 0;
+    protected int totalTermFrequency = 0;
+    protected TFIDFSearcher.WeightCalculationListener debuggerInterface;
 
-    private TFIDFSearcher.WeightCalculationListener debuggerInterface;
 
-    /**
-     * Constructor for the Indexer class; must be instantiate via {@link Builder}
-     */
-    private Indexer() {}
 
     /**
      * Responsible for the initialization of an Indexing process
@@ -322,8 +305,7 @@ class Indexer {
      * @param documents List of Document Objects
      * @param stopWords Set of the Stop word
      */
-    private void start(List<Document> documents, Set<String> stopWords) {
-
+    protected void start(List<Document> documents, Set<String> stopWords){
         // Temporary Mapping between (docId: Int) and (Mapping between (termId: Int) and (scoreWeight: Double))
         HashMap<Integer, HashMap<Integer, Double>> tempDocVector = new HashMap<>();
 
@@ -338,23 +320,24 @@ class Indexer {
             // Create an empty Vector for the Document
             tempDocVector.put(document.getId(), new HashMap<>());
 
+            onIndexingDocument(document.getId(), document.getRawText().length());
+
             // Initialize the set that memorizes the term in for the document. (We want to track document frequency of the term)
             HashSet<Integer> exploredTermSet = new HashSet<>();
-
-            for (final String term : document.getTokens()) {            // We iterate thru all tokens in the document
+            for (final String token : document.getTokens()) {            // We iterate thru all tokens in the document
                 totalTermFrequency++;                                   // Add up total frequency
 
-                if (stopWords.contains(term)) {                         // If it is one of Stop words
+                if (stopWords.contains(token)) {                         // If it is one of Stop words
                     continue;                                           // Ignore it
                 }
 
                 int currentTermId;                                      // Variable for storing termId
-                if (!invertedTermDict.containsKey(term)) {              // If we never seen this term String before,
-                    // Add that term String to the termDict;
+                if (!invertedTermDict.containsKey(token)) {              // If we never seen this token String before,
+                    // Add that token String to the termDict;
                     // also increment termIdCounter by 1.
-                    invertedTermDict.put(term, ++termIdCounter);
+                    invertedTermDict.put(token, ++termIdCounter);
 
-                    // termDict.put(term, termIdCounter);               // We don't add it up to termDict now.
+                    // termDict.put(token, termIdCounter);               // We don't add it up to termDict now.
 
                     // Assign the counter Id as the Current termId
                     currentTermId = termIdCounter;
@@ -362,7 +345,7 @@ class Indexer {
                     // Prepare the PostingList for this termId
                     postingLists.put(currentTermId, new HashSet<>());
                 } else {                                                // Otherwise
-                    currentTermId = invertedTermDict.get(term);         // We get the termId by term String.
+                    currentTermId = invertedTermDict.get(token);         // We get the termId by token String.
                 }
 
                 // We add docId to the PostingList of termId.
@@ -377,7 +360,7 @@ class Indexer {
                     // Put it as 0; because we want to treat it as frequency for now.
                     docTermScoreMap.put(currentTermId, 0.0);
                 }
-                // Crank the Score up by 1; We treat score as term frequency for now!
+                // Crank the Score up by 1; We treat score as token frequency for now!
                 docTermScoreMap.put(currentTermId, docTermScoreMap.get(currentTermId) + 1.0);
             }
 
@@ -390,9 +373,69 @@ class Indexer {
             }
         }
 
-        // System.out.println("termDocFreq Mat = " + termDocFrequency);
-        // System.out.println("postingList Mat = " + postingLists);
         populateTermDict(invertedTermDict);
+        onPostIndexing(invertedTermDict, tempDocVector);
+    }
+
+    /**
+     * Populate field termDict by simply assign it.
+     *
+     * @param invertedTermDict Mapping between (term: String) and (termId: Int)
+     */
+    private void populateTermDict(HashMap<String, Integer> invertedTermDict) {
+        // for (String term : invertedTermDict.keySet()) {
+        //     termDict.put(invertedTermDict.get(term), term);
+        // }
+        termDict = invertedTermDict;
+        invertedTermDict = null;
+    }
+
+    abstract void onIndexingDocument(int docId, int docLength);
+
+    abstract void onPostIndexing(HashMap<String, Integer> invertedTermDict, HashMap<Integer, HashMap<Integer, Double>> tempDocVector);
+
+    HashMap<String, Integer> getTermDict() {
+        return termDict;
+    }
+
+    HashMap<Integer, Integer> getTermDocFrequency() {
+        return termDocFrequency;
+    }
+
+    HashMap<Integer, HashSet<Integer>> getPostingLists() {
+        return postingLists;
+    }
+
+    public int getTotalTermFrequency() {
+        return totalTermFrequency;
+    }
+
+    public void setDebuggerInterface(TFIDFSearcher.WeightCalculationListener debuggerInterface) {
+        this.debuggerInterface = debuggerInterface;
+    }
+}
+
+/**
+ * A class that responsible for the document indexing
+ * Getters are allowed only as we do not allow any reassignments from external classes.
+ */
+class VectorSpaceModelIndexer extends Indexer {
+
+    /**
+     * Mapping between (docId: Int) and (documentVector: DocumentVector)
+     */
+    protected HashMap<Integer, TFIDFSearcher.DocumentVector> documentVectors = new HashMap<>();
+
+    /**
+     * Constructor for the Indexer class; must be instantiate via {@link Builder}
+     */
+    private VectorSpaceModelIndexer() {}
+
+    @Override
+    void onIndexingDocument(int docId, int docLength) { }
+
+    @Override
+    void onPostIndexing(HashMap<String, Integer> invertedTermDict, HashMap<Integer, HashMap<Integer, Double>> tempDocVector) {
         populateDocumentVectors(tempDocVector);
 
         calculateWeightsAndNormForAllVectors();
@@ -455,6 +498,11 @@ class Indexer {
         }
     }
 
+
+    HashMap<Integer, TFIDFSearcher.DocumentVector> getDocumentVectors() {
+        return documentVectors;
+    }
+
     /**
      * Populate field DocumentVector Map.
      *
@@ -470,42 +518,7 @@ class Indexer {
         tempDocVector = null;
     }
 
-    /**
-     * Populate field termDict by simply assign it.
-     *
-     * @param invertedTermDict Mapping between (term: String) and (termId: Int)
-     */
-    private void populateTermDict(HashMap<String, Integer> invertedTermDict) {
-        // for (String term : invertedTermDict.keySet()) {
-        //     termDict.put(invertedTermDict.get(term), term);
-        // }
-        termDict = invertedTermDict;
-        invertedTermDict = null;
-    }
 
-    HashMap<String, Integer> getTermDict() {
-        return termDict;
-    }
-
-    HashMap<Integer, TFIDFSearcher.DocumentVector> getDocumentVectors() {
-        return documentVectors;
-    }
-
-    HashMap<Integer, Integer> getTermDocFrequency() {
-        return termDocFrequency;
-    }
-
-    HashMap<Integer, HashSet<Integer>> getPostingLists() {
-        return postingLists;
-    }
-
-    public int getTotalTermFrequency() {
-        return totalTermFrequency;
-    }
-
-    public void setDebuggerInterface(TFIDFSearcher.WeightCalculationListener debuggerInterface) {
-        this.debuggerInterface = debuggerInterface;
-    }
 
     public static class Builder {
         private final List<Document> documents;
@@ -522,8 +535,8 @@ class Indexer {
             return this;
         }
 
-        public Indexer build() {
-            Indexer indexer = new Indexer();
+        public VectorSpaceModelIndexer build() {
+            VectorSpaceModelIndexer indexer = new VectorSpaceModelIndexer();
             indexer.setDebuggerInterface(listener);
             indexer.start(documents, stopWords);
             return indexer;

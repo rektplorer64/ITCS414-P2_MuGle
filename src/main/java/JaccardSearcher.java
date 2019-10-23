@@ -18,7 +18,7 @@ public class JaccardSearcher extends Searcher {
     /**
      * An instance of indexer which contains all indexed docs and terms.
      */
-    private Indexer indexer;
+    private VectorSpaceModelIndexer indexer;
 
     /**
      * Main constructor for the Searcher
@@ -30,7 +30,7 @@ public class JaccardSearcher extends Searcher {
         // TODO: YOUR CODE HERE
 
         // Instantiate the indexer
-        indexer = new Indexer.Builder(documents, stopWords).build();
+        indexer = new VectorSpaceModelIndexer.Builder(documents, stopWords).build();
     }
 
     /**
