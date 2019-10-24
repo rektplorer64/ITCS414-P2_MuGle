@@ -8,6 +8,9 @@ The group consists of
     3. Tanawin      Wichit          ID 6088221
  */
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -163,20 +166,57 @@ public class StudentTester {
         System.out.println("Search Systems ranked by F1");
 
         int rankCount = 1;
-        for (Map.Entry<Double, String> e : nvMap.entrySet()){
+        for (Map.Entry<Double, String> e : nvMap.entrySet()) {
             System.out.println("Rank " + (rankCount++) + ":\t" + e.getValue() + "\t\t\t@ F1 = " + e.getKey());
         }
     }
 
+    public static void iterativelySearchTopK(String corpus, int maxK) {
+
+        PrintWriter jaccardWriter = null, tfIdfWriter = null, bm25Writer = null;
+        try {
+            jaccardWriter = new PrintWriter("evaluationTo" + maxK + "-JaccardCoeff.csv", StandardCharsets.UTF_8);
+            tfIdfWriter = new PrintWriter("evaluationTo" + maxK + "-TfIdf.csv", StandardCharsets.UTF_8);
+            bm25Writer = new PrintWriter("evaluationTo" + maxK + "-BM25.csv", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        SearcherEvaluator s = new SearcherEvaluator(corpus);
+
+        Searcher jSearcher = new JaccardSearcher(testCorpus + "/documents.txt");
+        Searcher tSearcher = new TFIDFSearcher(testCorpus + "/documents.txt");
+        Searcher bm25Searcher = new MyCoolSearcher(testCorpus + "/documents.txt");
+
+        for (int k = 1; k <= maxK; k++) {
+            double[] jResults = s.getAveragePRF(jSearcher, k);
+            assert jaccardWriter != null;
+            jaccardWriter.println(k + ", " + jResults[0] + ", " + jResults[1] + ", " + jResults[2]);
+
+            double[] tResults = s.getAveragePRF(tSearcher, k);
+            assert tfIdfWriter != null;
+            tfIdfWriter.println(k + ", " + tResults[0] + ", " + tResults[1] + ", " + tResults[2]);
+
+            double[] bm25Results = s.getAveragePRF(bm25Searcher, k);
+            assert bm25Writer != null;
+            bm25Writer.println(k + ", " + bm25Results[0] + ", " + bm25Results[1] + ", " + bm25Results[2]);
+        }
+        jaccardWriter.close();
+        tfIdfWriter.close();
+        bm25Writer.close();
+    }
+
     public static void main(String[] args) {
         /********************* Uncomment test cases you want to test ***************/
-        // testJaccardSearcher(testCorpus);
+        testJaccardSearcher(testCorpus);
         // testTFIDFSearcher(testCorpus);
         // testCompareTwoSearchersOnSomeQueries(testCorpus);
         // testCompareTwoSearchersOnAllQueries(testCorpus);
 
+        // iterativelySearchTopK(testCorpus, 50);
+
         //********** BONUS **************//
-        testYourSearcher(testCorpus);
+        // testYourSearcher(testCorpus);
         //*******************************//
     }
 

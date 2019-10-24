@@ -163,7 +163,7 @@ class EvaluatorMathUtil {
      *
      * @param searchResultDocIds   the set of Ids of Document in the Search Result
      * @param realRelevantDocIdSet the set of Ids of real relevant Document
-     * @return precision value
+     * @return recall value
      */
     static double calculateRecall(Set<Integer> searchResultDocIds, Set<Integer> realRelevantDocIdSet) {
         // Intersection between Search Result set and real Relevant set
@@ -174,11 +174,11 @@ class EvaluatorMathUtil {
     }
 
     /**
-     * Find the value of F1; aka bridging between precision and recall values.
+     * Find the value of F1; aka harmonic mean between precision and recall values.
      *
      * @param precision precision value
      * @param recall    recall value
-     * @return F1 value
+     * @return F1 (harmonic mean between precision and recall) value
      */
     static double calculateBigF1(double precision, double recall) {
         if (precision + recall == 0) {
