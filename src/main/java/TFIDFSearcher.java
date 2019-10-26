@@ -334,9 +334,9 @@ abstract class Indexer {
             for (final String token : document.getTokens()) {            // We iterate thru all tokens in the document
                 totalTermFrequency++;                                   // Add up total frequency
 
-                if (stopWords.contains(token)) {                         // If it is one of Stop words
-                    continue;                                           // Ignore it
-                }
+                // if (stopWords.contains(token)) {                         // If it is one of Stop words
+                //     continue;                                           // Ignore it
+                // }
 
                 int currentTermId;                                      // Variable for storing termId
                 if (!invertedTermDict.containsKey(token)) {              // If we never seen this token String before,
