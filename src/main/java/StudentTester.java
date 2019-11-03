@@ -8,10 +8,13 @@ The group consists of
     3. Tanawin      Wichit          ID 6088221
  */
 
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Class containing a set of test-cases.
@@ -109,6 +112,11 @@ public class StudentTester {
         System.out.println("@@@ Total time used: " + (endTime - startTime) + " milliseconds.");
     }
 
+    /**
+     * A method that executes all Searchers (Jaccard, TF-IDF, BM25) and ranks them in terms of F1 result
+     *
+     * @param corpus url to the corpus folder
+     */
     public static void testYourSearcher(String corpus) {
         // TODO: YOUR CODE HERE (BONUS)
 
@@ -171,13 +179,31 @@ public class StudentTester {
         }
     }
 
+    /**
+     * Iteratively calculate precision, recall and F1 by increasing k value by 1.
+     *
+     * @param corpus url to the corpus folder
+     * @param maxK   the maximum k value needed
+     */
     public static void iterativelySearchTopK(String corpus, int maxK) {
+
+        String metricsFolderUrl = "./metrics/Relevance/";
+
+        File metricsFolder = new File("./metrics");
+        if (!metricsFolder.exists()) {
+            metricsFolder.mkdir();
+        }
+
+        File relevanceFolder = new File(metricsFolderUrl);
+        if (!relevanceFolder.exists()) {
+            relevanceFolder.mkdir();
+        }
 
         PrintWriter jaccardWriter = null, tfIdfWriter = null, bm25Writer = null;
         try {
-            jaccardWriter = new PrintWriter("evaluationTo" + maxK + "-JaccardCoeff.csv", StandardCharsets.UTF_8);
-            tfIdfWriter = new PrintWriter("evaluationTo" + maxK + "-TfIdf.csv", StandardCharsets.UTF_8);
-            bm25Writer = new PrintWriter("evaluationTo" + maxK + "-BM25.csv", StandardCharsets.UTF_8);
+            jaccardWriter = new PrintWriter(metricsFolderUrl + "evaluationTo" + maxK + "-JaccardCoeff.csv", StandardCharsets.UTF_8);
+            tfIdfWriter = new PrintWriter(metricsFolderUrl + "evaluationTo" + maxK + "-TfIdf.csv", StandardCharsets.UTF_8);
+            bm25Writer = new PrintWriter(metricsFolderUrl + "evaluationTo" + maxK + "-BM25.csv", StandardCharsets.UTF_8);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -206,6 +232,66 @@ public class StudentTester {
         bm25Writer.close();
     }
 
+    /**
+     * Repeatedly evaluate Searcher for a fixed k value.
+     * This method serves as a part of getting average computation time for each Searcher.
+     *
+     * @param corpus url to the corpus folder
+     * @param times  the number of repeats
+     * @param kValue the value for the fixed size of Search Result
+     */
+    public static void iterativelyMeasureTimeConsumption(String corpus, int times, int kValue) {
+
+        File metricsFolder = new File("./metrics");
+        if (!metricsFolder.exists()) {
+            metricsFolder.mkdir();
+        }
+
+        File timeFolder = new File("./metrics/Time Consumption");
+        if (!timeFolder.exists()) {
+            timeFolder.mkdir();
+        }
+
+        PrintWriter jaccardWriter = null, tfIdfWriter = null, bm25Writer = null;
+        try {
+            jaccardWriter = new PrintWriter("./metrics/Time Consumption/time-JaccardCoeff.csv", StandardCharsets.UTF_8);
+            tfIdfWriter = new PrintWriter("./metrics/Time Consumption/time-TfIdf.csv", StandardCharsets.UTF_8);
+            bm25Writer = new PrintWriter("./metrics/Time Consumption/time-BM25.csv", StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        SearcherEvaluator s = new SearcherEvaluator(corpus);
+
+
+        for (int i = 1; i <= times; i++) {
+
+            long timeA1 = System.currentTimeMillis();
+            Searcher jSearcher = new JaccardSearcher(testCorpus + "/documents.txt");
+            double[] jResults = s.getAveragePRF(jSearcher, kValue);
+            assert jaccardWriter != null;
+            long timeA2 = System.currentTimeMillis();
+            jaccardWriter.println(i + ", " + (timeA2 - timeA1));
+
+            long timeB1 = System.currentTimeMillis();
+            Searcher tSearcher = new TFIDFSearcher(testCorpus + "/documents.txt");
+            double[] tResults = s.getAveragePRF(tSearcher, kValue);
+            assert tfIdfWriter != null;
+            long timeB2 = System.currentTimeMillis();
+            tfIdfWriter.println(i + ", " + (timeB2 - timeB1));
+
+            long timeC1 = System.currentTimeMillis();
+            Searcher bm25Searcher = new MyCoolSearcher(testCorpus + "/documents.txt");
+            double[] bm25Results = s.getAveragePRF(bm25Searcher, kValue);
+            assert bm25Writer != null;
+            long timeC2 = System.currentTimeMillis();
+            bm25Writer.println(i + ", " + (timeC2 - timeC1));
+        }
+        jaccardWriter.close();
+        tfIdfWriter.close();
+        bm25Writer.close();
+    }
+
     public static void main(String[] args) {
         /********************* Uncomment test cases you want to test ***************/
         // testJaccardSearcher(testCorpus);
@@ -213,10 +299,12 @@ public class StudentTester {
         // testCompareTwoSearchersOnSomeQueries(testCorpus);
         // testCompareTwoSearchersOnAllQueries(testCorpus);
 
-        iterativelySearchTopK(testCorpus, 50);
+        /* FOR STATISTICAL FIGURE CREATION ONLY */
+        // iterativelySearchTopK(testCorpus, 50);
+        // iterativelyMeasureTimeConsumption(testCorpus, 30, 10);
 
         //********** BONUS **************//
-        // testYourSearcher(testCorpus);
+        testYourSearcher(testCorpus);
         //*******************************//
     }
 

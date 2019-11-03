@@ -8,18 +8,50 @@ import java.util.*;
 public class MyCoolSearcher extends Searcher {
 
     /**
+     * Tuning variable K1
+     */
+    private double tuningK1;
+
+    /**
+     * Tuning variable B
+     */
+    private double tuningB;
+
+    /**
+     * Tuning variable K3
+     */
+    private double tuningK3;
+
+    /**
      * An instance of Probabilistic indexer which contains all indexed docs and terms.
      */
     private final ProbabilisticIndexer indexer;
 
     /**
-     * Default constructor. Load raw documents into Document objects in memory
+     * Default constructor. Load raw documents into Document objects in memory.
      *
      * @param docFilename the name of a file that contains documents in it
      */
     public MyCoolSearcher(String docFilename) {
+        this(docFilename, 1.2, 0.75, 2.0);
+    }
+
+    /**
+     * A constructor. Load raw documents into Document objects in memory.
+     * Assigns all tuning variables to their field equivalent.
+     *
+     * @param docFilename the name of a file that contains documents in it
+     * @param tuningK1    the first tuning variable
+     * @param tuningB     the second tuning variable
+     * @param tuningK3    the third tuning variable
+     */
+    public MyCoolSearcher(String docFilename, double tuningK1, double tuningB, double tuningK3) {
         super(docFilename);
-        ProbabilisticIndexer.Builder indexerBuilder = new ProbabilisticIndexer.Builder(documents, stopWords, 1.2, 0.75, 2.0);
+        this.tuningK1 = tuningK1;
+        this.tuningB = tuningB;
+        this.tuningK3 = tuningK3;
+
+        ProbabilisticIndexer.Builder indexerBuilder = new ProbabilisticIndexer.Builder(documents, stopWords);
         indexer = indexerBuilder.build();
     }
 
@@ -72,9 +104,9 @@ public class MyCoolSearcher extends Searcher {
         HashMap<Integer, ProbabilisticResult> results = new HashMap<>();
 
         // Instantiate new tuning variables
-        double k1 = indexer.getTuningK1();
-        double b = indexer.getTuningB();
-        double k3 = indexer.getTuningK3();
+        final double k1 = tuningK1;
+        final double b = tuningB;
+        final double k3 = tuningK3;
 
         for (int docId : potentialDocIds) {
 
@@ -120,6 +152,34 @@ public class MyCoolSearcher extends Searcher {
             }
         }
         return TFIDFSearcher.finalizeSearchResult(searchResults, k);
+    }
+
+    public double getTuningK1() {
+        return tuningK1;
+    }
+
+    public void setTuningK1(double tuningK1) {
+        this.tuningK1 = tuningK1;
+    }
+
+    public double getTuningB() {
+        return tuningB;
+    }
+
+    public void setTuningB(double tuningB) {
+        this.tuningB = tuningB;
+    }
+
+    public double getTuningK3() {
+        return tuningK3;
+    }
+
+    public void setTuningK3(double tuningK3) {
+        this.tuningK3 = tuningK3;
+    }
+
+    public ProbabilisticIndexer getIndexer() {
+        return indexer;
     }
 
     public static class ProbabilisticResult implements Comparable {
@@ -170,13 +230,14 @@ public class MyCoolSearcher extends Searcher {
             return Double.compare(rsv, ((ProbabilisticResult) o).rsv);
         }
     }
+
 }
 
 /**
  * A class that responsible for the document indexing using BestMatch25 (BM25), a probability-based similarity matching
  * Getters are allowed only as we do not allow any reassignments from external classes.
  */
-class ProbabilisticIndexer extends Indexer {
+class ProbabilisticIndexer extends TFIDFSearcher.Indexer {
     /**
      * Mapping between documentId and Raw Document Length
      */
@@ -193,36 +254,14 @@ class ProbabilisticIndexer extends Indexer {
     private HashMap<Integer, HashMap<Integer, Integer>> termIncidenceMatrix = new HashMap<>();
 
     /**
-     * Tuning variable K1
-     */
-    private final double tuningK1;
-
-    /**
-     * Tuning variable B
-     */
-    private final double tuningB;
-
-    /**
-     * Tuning variable K3
-     */
-    private final double tuningK3;
-
-    /**
      * Average Document Length in the corpus
      */
     private double averageDocumentLength = 0;
 
     /**
-     * Instantiate the Probabilistic Indexer
-     *
-     * @param tuningK1 tuning variable K1
-     * @param tuningB  tuning variable B
-     * @param tuningK3 tuning variable K3
+     * Instantiate the Probabilistic MyCoolSearcher.Indexer
      */
-    public ProbabilisticIndexer(double tuningK1, double tuningB, double tuningK3) {
-        this.tuningK1 = tuningK1;
-        this.tuningB = tuningB;
-        this.tuningK3 = tuningK3;
+    public ProbabilisticIndexer() {
     }
 
     /**
@@ -274,25 +313,19 @@ class ProbabilisticIndexer extends Indexer {
     }
 
     /**
-     * Builder class for Probabilistic Indexer
+     * Builder class for Probabilistic MyCoolSearcher.Indexer
      */
     public static class Builder {
         private final List<Document> documents;
         private final Set<String> stopWords;
-        private final double k1;
-        private final double b;
-        private final double k3;
 
-        public Builder(List<Document> documents, Set<String> stopWords, double k1, double b, double k3) {
+        public Builder(List<Document> documents, Set<String> stopWords) {
             this.documents = documents;
             this.stopWords = stopWords;
-            this.k1 = k1;
-            this.b = b;
-            this.k3 = k3;
         }
 
         public ProbabilisticIndexer build() {
-            ProbabilisticIndexer indexer = new ProbabilisticIndexer(k1, b, k3);
+            ProbabilisticIndexer indexer = new ProbabilisticIndexer();
             // indexer.setDebuggerInterface(listener);
             indexer.start(documents, stopWords);
             return indexer;
@@ -301,18 +334,6 @@ class ProbabilisticIndexer extends Indexer {
 
     public HashMap<Integer, Integer> getDocumentLengthMap() {
         return documentLengthMap;
-    }
-
-    public double getTuningK1() {
-        return tuningK1;
-    }
-
-    public double getTuningB() {
-        return tuningB;
-    }
-
-    public double getTuningK3() {
-        return tuningK3;
     }
 
     public double getAverageDocumentLength() {

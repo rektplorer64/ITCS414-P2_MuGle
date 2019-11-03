@@ -30,6 +30,7 @@ public class JaccardSearcher extends Searcher {
         // TODO: YOUR CODE HERE
 
         // Instantiate the indexer
+        // VSM MyCoolSearcher.Indexer is being used because we don't want to create static nested Builder class for the MyCoolSearcher.Indexer class
         indexer = new VectorSpaceModelIndexer.Builder(documents, stopWords).build();
     }
 
@@ -108,8 +109,8 @@ class JaccardMathHelper {
         }
 
         // Intersection between QUERY termId set and DOCUMENT termId set
-        Set<String> intersect = new HashSet<>(documentTermIdSet);
-        intersect.retainAll(queryTermIdSet);
+        Set<String> intersect = new HashSet<>(queryTermIdSet);
+        intersect.retainAll(documentTermIdSet);
 
         // Union of DOCUMENT termId set and QUERY term Id set
         Set<String> union = new HashSet<>(documentTermIdSet);

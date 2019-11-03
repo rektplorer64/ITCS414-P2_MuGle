@@ -29,6 +29,7 @@ public class TFIDFSearcher extends Searcher {
      */
     public TFIDFSearcher(String docFilename) {
         // TODO: Your Code Here
+        // Please take a look at the other constructor
         this(docFilename, null);
     }
 
@@ -40,7 +41,10 @@ public class TFIDFSearcher extends Searcher {
      */
     public TFIDFSearcher(String docFilename, WeightCalculationListener w) {
         super(docFilename);
-        // Instantiate the indexer
+        // Instantiate the indexer by using Builder class
+        // NOTE:
+        // Please read the code, we know it is over-engineered but still.
+        // We just only want to create a reusable code.
         VectorSpaceModelIndexer.Builder indexerBuilder = new VectorSpaceModelIndexer.Builder(documents, stopWords);
         indexerBuilder.setDebuggerInterface(w);
         indexer = indexerBuilder.build();
@@ -151,12 +155,14 @@ public class TFIDFSearcher extends Searcher {
      */
     static List<SearchResult> finalizeSearchResult(ArrayList<SearchResult> searchResults, int k) {
 
+        // Collections.sort(searchResults);
         // Sort the ArrayList
         searchResults.sort(new Comparator<SearchResult>() {
             /**
              * Compare both Documents by the given logic flow below
-             * @param o1 a SearchResult
-             * @param o2 another SearchResult
+             *
+             * @param o1    a SearchResult
+             * @param o2    another SearchResult
              * @return an integer indicate the equality or value difference
              */
             @Override
@@ -281,164 +287,158 @@ public class TFIDFSearcher extends Searcher {
 
         void onCalculated(TFIDFSearcher.DocumentVector dv);
     }
-}
-
-/**
- * A class that responsible for the document indexing.
- * Getters are allowed only as we do not allow any reassignments from external classes.
- */
-abstract class Indexer {
-    /**
-     * Mapping between (term: String) and (termId: Int)
-     */
-    protected HashMap<String, Integer> termDict = new HashMap<>();
-    /**
-     * Mapping between (termId: Int) and (termFreq: Int)
-     */
-    protected HashMap<Integer, Integer> termDocFrequency = new HashMap<>();
-    /**
-     * Mapping between (termId: Int) and (docIdSet: HashSet{@literal <Int>})
-     */
-    protected HashMap<Integer, HashSet<Integer>> postingLists = new HashMap<>();
-    /**
-     * Integer that counts all term frequency
-     */
-    protected int totalTermFrequency = 0;
 
     /**
-     * Responsible for the initialization of an Indexing process
-     * Be careful for this initialization, as it can be expensive for a large dataset.
-     *
-     * @param documents List of Document Objects
-     * @param stopWords Set of the Stop word
+     * A class that responsible for the document indexing.
+     * Getters are allowed only as we do not allow any reassignments from external classes.
      */
-    protected void start(List<Document> documents, Set<String> stopWords) {
-        // Temporary Mapping between (docId: Int) and (Mapping between (termId: Int) and (scoreWeight: Double))
-        HashMap<Integer, HashMap<Integer, Double>> tempDocVector = new HashMap<>();
+    abstract static class Indexer {
+        /**
+         * Mapping between (term: String) and (termId: Int)
+         */
+        protected HashMap<String, Integer> termDict = new HashMap<>();
+        /**
+         * Mapping between (termId: Int) and (termFreq: Int)
+         */
+        protected HashMap<Integer, Integer> termDocFrequency = new HashMap<>();
+        /**
+         * Mapping between (termId: Int) and (docIdSet: HashSet{@literal <Int>})
+         */
+        protected HashMap<Integer, HashSet<Integer>> postingLists = new HashMap<>();
+        /**
+         * Integer that counts all term frequency
+         */
+        protected int totalTermFrequency = 0;
 
-        // Mapping between (term: String) and (termId: Int)
-        HashMap<String, Integer> invertedTermDict = new HashMap<>();
+        /**
+         * Responsible for the initialization of an Indexing process
+         * Be careful for this initialization, as it can be expensive for a large dataset.
+         *
+         * @param documents List of Document Objects
+         * @param stopWords Set of the Stop word
+         */
+        protected void start(List<Document> documents, Set<String> stopWords) {
+            // Temporary Mapping between (docId: Int) and (Mapping between (termId: Int) and (scoreWeight: Double))
+            HashMap<Integer, HashMap<Integer, Double>> tempDocVector = new HashMap<>();
 
-        // Initialize the term Id counter
-        int termIdCounter = 0;
+            // Mapping between (term: String) and (termId: Int)
+            HashMap<String, Integer> invertedTermDict = new HashMap<>();
 
-        // Iterates thru all Documents in the param List
-        for (final Document document : documents) {
-            // Create an empty Vector for the Document
-            tempDocVector.put(document.getId(), new HashMap<>());
+            // Initialize the term Id counter
+            int termIdCounter = 0;
 
-            onIndexingDocument(document.getId(), document.getRawText().length());
+            // Iterates thru all Documents in the param List
+            for (final Document document : documents) {
+                // Create an empty Vector for the Document
+                tempDocVector.put(document.getId(), new HashMap<>());
 
-            // Initialize the set that memorizes the term in for the document. (We want to track document frequency of the term)
-            HashSet<Integer> exploredTermSet = new HashSet<>();
-            for (final String token : document.getTokens()) {            // We iterate thru all tokens in the document
-                totalTermFrequency++;                                   // Add up total frequency
+                onIndexingDocument(document.getId(), document.getRawText().length());
 
-                // if (stopWords.contains(token)) {                         // If it is one of Stop words
-                //     continue;                                           // Ignore it
-                // }
+                // Initialize the set that memorizes the term in for the document. (We want to track document frequency of the term)
+                HashSet<Integer> exploredTermSet = new HashSet<>();
+                for (final String token : document.getTokens()) {            // We iterate thru all tokens in the document
+                    totalTermFrequency++;                                    // Add up total frequency
 
-                int currentTermId;                                      // Variable for storing termId
-                if (!invertedTermDict.containsKey(token)) {              // If we never seen this token String before,
-                    // Add that token String to the termDict;
-                    // also increment termIdCounter by 1.
-                    invertedTermDict.put(token, ++termIdCounter);
+                    int currentTermId;                                       // Variable for storing termId
+                    if (!invertedTermDict.containsKey(token)) {              // If we never seen this token String before,
+                        // Add that token String to the termDict;
+                        // also increment termIdCounter by 1.
+                        invertedTermDict.put(token, ++termIdCounter);
 
-                    // termDict.put(token, termIdCounter);               // We don't add it up to termDict now.
+                        // Assign the counter Id as the Current termId
+                        currentTermId = termIdCounter;
 
-                    // Assign the counter Id as the Current termId
-                    currentTermId = termIdCounter;
+                        // Prepare the PostingList for this termId
+                        postingLists.put(currentTermId, new HashSet<>());
+                    } else {                                                // Otherwise
+                        currentTermId = invertedTermDict.get(token);         // We get the termId by token String.
+                    }
 
-                    // Prepare the PostingList for this termId
-                    postingLists.put(currentTermId, new HashSet<>());
-                } else {                                                // Otherwise
-                    currentTermId = invertedTermDict.get(token);         // We get the termId by token String.
+                    // We add docId to the PostingList of termId.
+                    postingLists.get(currentTermId).add(document.getId());
+
+                    // Mark the Term as explored
+                    exploredTermSet.add(currentTermId);
+
+                    // Get the Document Vector from the docId
+                    HashMap<Integer, Double> docTermScoreMap = tempDocVector.get(document.getId());
+                    if (!docTermScoreMap.containsKey(currentTermId)) {      // If the current termId is not present in the Document Vector
+                        // Put it as 0; because we want to treat it as frequency for now.
+                        docTermScoreMap.put(currentTermId, 0.0);
+                    }
+                    // Crank the Score up by 1; We treat score as token frequency for now!
+                    docTermScoreMap.put(currentTermId, docTermScoreMap.get(currentTermId) + 1.0);
                 }
 
-                // We add docId to the PostingList of termId.
-                postingLists.get(currentTermId).add(document.getId());
-
-                // Mark the Term as explored
-                exploredTermSet.add(currentTermId);
-
-                // Get the Document Vector from the docId
-                HashMap<Integer, Double> docTermScoreMap = tempDocVector.get(document.getId());
-                if (!docTermScoreMap.containsKey(currentTermId)) {      // If the current termId is not present in the Document Vector
-                    // Put it as 0; because we want to treat it as frequency for now.
-                    docTermScoreMap.put(currentTermId, 0.0);
+                // For every explored terms in this document
+                for (int termId : exploredTermSet) {
+                    if (!termDocFrequency.containsKey(termId)) {        // If the termId is not exists in the map
+                        termDocFrequency.put(termId, 0);                // We initialize document Frequency as 0.
+                    }
+                    termDocFrequency.put(termId, termDocFrequency.get(termId) + 1);     // We add up document Frequency by 1.
                 }
-                // Crank the Score up by 1; We treat score as token frequency for now!
-                docTermScoreMap.put(currentTermId, docTermScoreMap.get(currentTermId) + 1.0);
             }
 
-            // For every explored terms in this document
-            for (int termId : exploredTermSet) {
-                if (!termDocFrequency.containsKey(termId)) {        // If the termId is not exists in the map
-                    termDocFrequency.put(termId, 0);                // We initialize document Frequency as 0.
-                }
-                termDocFrequency.put(termId, termDocFrequency.get(termId) + 1);     // We add up document Frequency by 1.
-            }
+            populateTermDict(invertedTermDict);
+            onPostIndexing(invertedTermDict, tempDocVector);
         }
 
-        populateTermDict(invertedTermDict);
-        onPostIndexing(invertedTermDict, tempDocVector);
+        /**
+         * Populate field termDict by simply assign it.
+         *
+         * @param invertedTermDict Mapping between (term: String) and (termId: Int)
+         */
+        private void populateTermDict(HashMap<String, Integer> invertedTermDict) {
+            // for (String term : invertedTermDict.keySet()) {
+            //     termDict.put(invertedTermDict.get(term), term);
+            // }
+            termDict = invertedTermDict;
+            invertedTermDict = null;
+        }
+
+        /**
+         * The method will invoked when the indexer start indexing a document
+         *
+         * @param docId     document Id
+         * @param docLength the length of the actual document (Duplications and stop-words included)
+         */
+        abstract void onIndexingDocument(int docId, int docLength);
+
+        /**
+         * The method will be invoked after the indexing process is entirely completed.
+         *
+         * @param invertedTermDict mapping between (term string and its termId number)
+         * @param tempDocVector    mapping between (documentId and mapping between (termId and value such as TF-IDF or raw termFreq))
+         */
+        abstract void onPostIndexing(HashMap<String, Integer> invertedTermDict, HashMap<Integer, HashMap<Integer, Double>> tempDocVector);
+
+        HashMap<String, Integer> getTermDict() {
+            return termDict;
+        }
+
+        HashMap<Integer, Integer> getTermDocFrequency() {
+            return termDocFrequency;
+        }
+
+        HashMap<Integer, HashSet<Integer>> getPostingLists() {
+            return postingLists;
+        }
+
+        public int getTotalTermFrequency() {
+            return totalTermFrequency;
+        }
+
     }
-
-    /**
-     * Populate field termDict by simply assign it.
-     *
-     * @param invertedTermDict Mapping between (term: String) and (termId: Int)
-     */
-    private void populateTermDict(HashMap<String, Integer> invertedTermDict) {
-        // for (String term : invertedTermDict.keySet()) {
-        //     termDict.put(invertedTermDict.get(term), term);
-        // }
-        termDict = invertedTermDict;
-        invertedTermDict = null;
-    }
-
-    /**
-     * The method will invoked when the indexer start indexing a document
-     *
-     * @param docId     document Id
-     * @param docLength the length of the actual document (Duplications and stop-words included)
-     */
-    abstract void onIndexingDocument(int docId, int docLength);
-
-    /**
-     * The method will be invoked after the indexing process is entirely completed.
-     *
-     * @param invertedTermDict mapping between (term string and its termId number)
-     * @param tempDocVector    mapping between (documentId and mapping between (termId and value such as TF-IDF or raw termFreq))
-     */
-    abstract void onPostIndexing(HashMap<String, Integer> invertedTermDict, HashMap<Integer, HashMap<Integer, Double>> tempDocVector);
-
-    HashMap<String, Integer> getTermDict() {
-        return termDict;
-    }
-
-    HashMap<Integer, Integer> getTermDocFrequency() {
-        return termDocFrequency;
-    }
-
-    HashMap<Integer, HashSet<Integer>> getPostingLists() {
-        return postingLists;
-    }
-
-    public int getTotalTermFrequency() {
-        return totalTermFrequency;
-    }
-
 }
 
 /**
  * A class that responsible for the document indexing using TF-IDF Weight with Cosine Similarity.
  * Getters are allowed only as we do not allow any reassignments from external classes.
  */
-class VectorSpaceModelIndexer extends Indexer {
+class VectorSpaceModelIndexer extends TFIDFSearcher.Indexer {
 
     /**
-     * Debugging Interface for Indexer
+     * Debugging Interface for MyCoolSearcher.Indexer
      */
     protected TFIDFSearcher.WeightCalculationListener debuggerInterface;
 
@@ -448,13 +448,14 @@ class VectorSpaceModelIndexer extends Indexer {
     protected HashMap<Integer, TFIDFSearcher.DocumentVector> documentVectors = new HashMap<>();
 
     /**
-     * Constructor for the Indexer class; must be instantiate via {@link Builder}
+     * Constructor for the MyCoolSearcher.Indexer class; must be instantiate via {@link Builder}
      */
     private VectorSpaceModelIndexer() {
     }
 
     /**
      * It is not necessary to do anything on indexing a new document.
+     *
      * @param docId     document Id
      * @param docLength the length of the actual document (Duplications and stop-words included)
      */
@@ -555,7 +556,7 @@ class VectorSpaceModelIndexer extends Indexer {
     }
 
     /**
-     * Builder for the VSM Indexer
+     * Builder for the VSM MyCoolSearcher.Indexer
      */
     public static class Builder {
         private final List<Document> documents;
