@@ -8,8 +8,6 @@ The group consists of
     3. Tanawin      Wichit          ID 6088221
  */
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.*;
 
 /**
@@ -233,7 +231,7 @@ public class MyCoolSearcher extends Searcher {
         }
 
         @Override
-        public int compareTo(@NotNull Object o) {
+        public int compareTo(Object o) {
             if (!(o instanceof ProbabilisticResult)) {
                 return 0;
             }

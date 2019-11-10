@@ -14,7 +14,7 @@ internal class TfIdfScoreTest {
         tfIdfSearcher = TFIDFSearcher("./data/lisa/documents.txt", object :
             TFIDFSearcher.WeightCalculationListener {
             override fun onLoopIterationCheckCondition(docId: Int): Boolean {
-                return docId == 2790
+                return docId == 1789
             }
 
             override fun onCalculation(

@@ -8,8 +8,6 @@ The group consists of
     3. Tanawin      Wichit          ID 6088221
  */
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.*;
 
 /**
@@ -264,7 +262,7 @@ public class TFIDFSearcher extends Searcher {
         }
 
         @Override
-        public int compareTo(@NotNull Integer o) {
+        public int compareTo(Integer o) {
             return this.docId - o;
         }
 
